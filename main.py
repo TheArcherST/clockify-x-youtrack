@@ -2,7 +2,7 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 from logging import getLogger, basicConfig
 
@@ -30,8 +30,16 @@ def upsert_clockify_to_youtrack(
     for entry in entries[:sync_window_size]:
         sleep(1)
         raw_time_interval = entry["timeInterval"]
+
+        if raw_time_interval["end"] is None:
+            continue  # skip active time entries
+        
         start = datetime.fromisoformat(raw_time_interval["start"])
         end = datetime.fromisoformat(raw_time_interval["end"])
+        
+        sync_delay = int(os.getenv("APPLICATION__SYNC_DELAY"))
+        if end + timedelta(seconds=sync_delay) >= datetime.now():
+            continue
 
         if start <= threshold:
             continue
