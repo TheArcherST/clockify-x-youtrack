@@ -38,7 +38,7 @@ def upsert_clockify_to_youtrack(
         end = datetime.fromisoformat(raw_time_interval["end"])
         
         sync_delay = int(os.getenv("APPLICATION__SYNC_DELAY"))
-        if end + timedelta(seconds=sync_delay) >= datetime.now():
+        if end + timedelta(seconds=sync_delay) >= datetime.now(tz=tz):
             continue
 
         if start <= threshold:
