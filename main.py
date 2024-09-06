@@ -70,6 +70,7 @@ def upsert_clockify_to_youtrack(
         if entry["id"] in all_entry_ids:
             continue
 
+        current_datetime_str = datetime.now(tz=tz).strftime("%Y-%m-%d %H:%M:%S (%z)")
         r = youtrack_client.create_issue_work_item(
             issue_id=issue_id,
             issue_work_item=IssueWorkItem(
@@ -78,8 +79,8 @@ def upsert_clockify_to_youtrack(
                     minutes=round((end - start).total_seconds() / 60),
                 ),
                 text=(
-                    f"{time_entry_description}\n\n"
-                    f"Upserted from clockify on {datetime.now(tz=tz)}"
+                    f"**{time_entry_description}**\n\n"
+                    f"Inserted from clockify on {current_datetime_str}"
                     f"\nDO NOT EDIT CONTENT BELOW MANUALLY"
                     f"\nTime entry id: `{entry["id"]}`"
                 )
