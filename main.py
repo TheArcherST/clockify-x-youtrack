@@ -11,7 +11,7 @@ from clockify_api_client.client import ClockifyAPIClient
 import youtrack_sdk
 from youtrack_sdk.entities import IssueWorkItem, DurationValue
 
-tz = pytz.timezone('Europe/Moscow')
+tz = pytz.timezone(os.getenv("APPLICATION__TZ"))
 
 
 logger = getLogger(__name__)
