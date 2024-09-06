@@ -1,0 +1,7 @@
+name: "clockify-x-youtrack"
+services:
+  daemon:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
