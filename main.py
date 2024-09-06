@@ -81,6 +81,7 @@ def upsert_clockify_to_youtrack(
                     f"{time_entry_description}\n\n"
                     f"This record is automatically imported from clockify on"
                     f" {datetime.now(tz=tz)}"
+                    f"\nDO NOT EDIT LINES BELOW MANUALLY"
                     f"\nWorkspace id: `{entry["workspaceId"]}`"
                     f"\nProject id: `{entry["projectId"]}`"
                     f"\nTime entry id: `{entry["id"]}`"
