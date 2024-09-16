@@ -9,7 +9,7 @@ from logging import getLogger, basicConfig
 import pytz
 from clockify_api_client.client import ClockifyAPIClient
 import youtrack_sdk
-from youtrack_sdk.entities import IssueWorkItem, DurationValue
+from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
 
 tz = pytz.timezone(os.getenv("APPLICATION__TZ"))
 
@@ -18,8 +18,8 @@ logger = getLogger(__name__)
 
 
 def upsert_clockify_to_youtrack(
-        clockify_client,
-        youtrack_client,
+        clockify_client: ClockifyAPIClient,
+        youtrack_client: youtrack_sdk.Client,
 ):
     entries = clockify_client.time_entries.get_time_entries(
         workspace_id=os.getenv("CLOCKIFY__WORKSPACE_ID"),
@@ -83,6 +83,9 @@ def upsert_clockify_to_youtrack(
                     f"Inserted from clockify on {current_datetime_str}"
                     f"\nDO NOT EDIT CONTENT BELOW MANUALLY"
                     f"\nTime entry id: `{entry["id"]}`"
+                ),
+                work_item_type=WorkItemType(
+                    id=os.getenv("YOUTRACK__WORK_ITEM_TYPE_ID"),
                 )
             )
         )
