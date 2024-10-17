@@ -1,8 +1,8 @@
 import logging
 import os
 import re
-import sys
 from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
 from time import sleep
 from logging import getLogger, basicConfig
 
@@ -10,6 +10,16 @@ import pytz
 from clockify_api_client.client import ClockifyAPIClient
 import youtrack_sdk
 from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
+from pydantic_settings import BaseSettings
+from fastapi import FastAPI
+from dishka import make_container
+
+
+class CYSettings(BaseSettings):
+    tz: str
+    sync_window_size: int
+    sync_delay_seconds: int
+
 
 tz = pytz.timezone(os.getenv("APPLICATION__TZ"))
 
@@ -96,6 +106,17 @@ def upsert_clockify_to_youtrack(
 
 
 def main():
+    handler = RotatingFileHandler(
+        filename="/logs/clockify-x-youtrack.log",
+        maxBytes=1000*1000,
+        backupCount=10,
+    )
+    basicConfig(handlers=[handler], level=logging.DEBUG)
+
+    container = make_container()
+    app = FastAPI()
+    register_admin(app)
+
     clockify_client = (
         ClockifyAPIClient()
         .build(
@@ -117,5 +138,4 @@ def main():
 
 
 if __name__ == '__main__':
-    basicConfig(stream=sys.stdout, level=logging.DEBUG)
     main()

@@ -1,0 +1,20 @@
+[project]
+name = "cloyt"
+version = "0.0.1"
+dependencies = [
+    "sqlalchemy>=2",
+    "clockify-api-client~=0.1.0",
+    "pytz~=2024.2",
+    "youtrack-sdk~=1.0.202409111140",
+    "sqlalchemy>=2",
+    "alembic",
+    "pydantic-settings",
+    "ruff",
+    "fastapi",
+    "sqladmin[full]",
+    "dishka",
+    "uvicorn",
+]
+
+[project.scripts]
+cloyt = "cloyt.main:main"
