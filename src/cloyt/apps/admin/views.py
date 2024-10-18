@@ -1,9 +1,12 @@
 from datetime import timedelta
+from typing import Type
 
+import wtforms
 from dishka import AsyncContainer
 from fastapi import FastAPI
 from sqladmin import ModelView, Admin
 from sqlalchemy.ext.asyncio import AsyncEngine
+from wtforms import Form
 
 from cloyt.apps.admin.auth_backend import AdminAuthBackend
 from cloyt.domain.models import (
@@ -19,18 +22,24 @@ from cloyt.infrastructure import AdminConfig
 class EmployeeAdmin(ModelView, model=Employee):
     column_list = [
         Employee.full_name,
-        Employee.clockify_token,
-        Employee.youtrack_token,
         Employee.created_at,
         Employee.projects,
+        Employee.clockify_token,
+        Employee.youtrack_token,
     ]
     form_edit_rules = [
         "full_name",
-        "clockify_token",
-        "youtrack_token",
-        "sync_by_default",
-        "projects",
     ]
+
+    async def scaffold_form(self, *args) -> Type[Form]:
+        form = await super().scaffold_form()
+        form.youtrack_token = wtforms.PasswordField(
+            "Youtrack token", render_kw={"class": "form-control"}
+        )
+        form.clockify_token = wtforms.PasswordField(
+            "Clockify token", render_kw={"class": "form-control"}
+        )
+        return form
 
 
 class ProjectAdmin(ModelView, model=Project):
