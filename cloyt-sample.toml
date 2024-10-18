@@ -1,0 +1,15 @@
+[postgres]
+host = "postgres"
+port = 5432
+user = "cloyt"
+database = "cloyt"
+
+[daemon]
+sync_tolerance_delay_seconds = 30
+sync_throttling_delay_seconds = 120
+sync_window_size = 5
+ignore_entries_before = "2024-10-17T20:41:55Z"
+youtrack_base_url = ""
+tz = "Europe/Moscow"
+
+[admin]

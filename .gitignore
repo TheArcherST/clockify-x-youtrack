@@ -1,4 +1,5 @@
 .env
+cloyt.toml
 .venv
 .idea
 *.pyc

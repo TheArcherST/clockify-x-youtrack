@@ -3,5 +3,65 @@ services:
   daemon:
     build: .
     restart: unless-stopped
+    command: ["cloyt-daemon"]
     env_file:
       - .env
+    environment:
+      CLOYT__ADMIN__LOGS_PATH: "/var/logs"
+      CLOYT__DAEMON__LOGS_PATH: "/var/logs"
+    volumes:
+      - ./logs:/var/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      run-migrations:
+        condition: service_completed_successfully
+  admin:
+    build: .
+    restart: unless-stopped
+    command: ["cloyt-admin"]
+    env_file:
+      - .env
+    environment:
+      CLOYT__ADMIN__LOGS_PATH: "/var/logs"
+      CLOYT__DAEMON__LOGS_PATH: "/var/logs"
+    volumes:
+      - ./logs:/var/logs
+    ports:
+      - ${COMPOSE__ADMIN__HOST}:${COMPOSE__ADMIN__PORT}:80
+    depends_on:
+      postgres:
+        condition: service_healthy
+      run-migrations:
+        condition: service_completed_successfully
+  run-migrations:
+    build: .
+    restart: no
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    environment:
+      CLOYT__ADMIN__LOGS_PATH: "/var/logs"
+      CLOYT__DAEMON__LOGS_PATH: "/var/logs"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:17
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${COMPOSE__POSTGRES__PASSWORD}
+      POSTGRES_USER: ${COMPOSE__POSTGRES__USER}
+      POSTGRES_DB: ${COMPOSE__POSTGRES__DB}
+    ports:
+      - ${COMPOSE__POSTGRES__HOST}:${COMPOSE__POSTGRES__PORT}:5432
+    healthcheck:
+      test: "pg_isready -d ${COMPOSE__POSTGRES__DB} -U ${COMPOSE__POSTGRES__USER}"
+      interval: 10s
+      timeout: 5s
+      start_interval: 1s
+      retries: 3
+      start_period: 30s
+volumes:
+  postgres_data:

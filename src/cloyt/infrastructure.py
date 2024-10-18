@@ -1,6 +1,16 @@
+from datetime import datetime
+from os import getenv
+from typing import AsyncIterable, Iterable, Type
+
+import zoneinfo
 from dishka import Provider, provide, Scope
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+    PydanticBaseSettingsSource,
+)
 from sqlalchemy import (
     create_engine,
     Engine,
@@ -21,7 +31,7 @@ class PostgresConfig(BaseModel):
     database: str
     
     def get_sqlalchemy_url(self, driver: str):
-        return "postgres+{}://{}:{}/{}:{}/{}".format(
+        return "postgresql+{}://{}:{}@{}:{}/{}".format(
             driver,
             self.user,
             self.password,
@@ -32,24 +42,52 @@ class PostgresConfig(BaseModel):
 
 
 class AdminConfig(BaseModel):
-    host: str
-    port: int
+    default_user: str
+    default_password: str
+    logging_level: str = "DEBUG"
+    logs_path: str
 
 
 class DaemonConfig(BaseModel):
+    sync_tolerance_delay_seconds: int
     sync_throttling_delay_seconds: int
     sync_window_size: int
+    ignore_entries_before: datetime
+    youtrack_base_url: str
+    tz: zoneinfo.ZoneInfo
+    logging_level: str = "DEBUG"
+    logs_path: str
 
 
 class CloytConfig(BaseSettings):
-    postgres: PostgresConfig | None = None
-    admin: AdminConfig | None = None
-    daemon: DaemonConfig | None = None
+    postgres: PostgresConfig = None
+    daemon: DaemonConfig = None
+    admin: AdminConfig = None
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
+        env_file=".env",
         env_prefix="CLOYT__",
+        toml_file="cloyt.toml",
+        extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+            cls,
+            settings_cls: Type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+            TomlConfigSettingsSource(settings_cls),
+        )
 
 
 class InfrastructureProvider(Provider):
@@ -100,7 +138,7 @@ class InfrastructureProvider(Provider):
     async def get_async_session(
             self,
             engine: AsyncEngine,
-    ) -> AsyncSession:
+    ) -> AsyncIterable[AsyncSession]:
         async with AsyncSession(bind=engine) as session:
             yield session
 
@@ -117,6 +155,6 @@ class InfrastructureProvider(Provider):
     def get_sync_session(
             self,
             engine: Engine
-    ) -> Session:
-        with Session(bind=engine) as session:
+    ) -> Iterable[Session]:
+        with Session(bind=engine, expire_on_commit=False) as session:
             yield session

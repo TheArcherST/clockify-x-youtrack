@@ -4,7 +4,6 @@ version = "0.0.1"
 dependencies = [
     "sqlalchemy>=2",
     "clockify-api-client~=0.1.0",
-    "pytz~=2024.2",
     "youtrack-sdk~=1.0.202409111140",
     "sqlalchemy>=2",
     "alembic",
@@ -14,7 +13,10 @@ dependencies = [
     "sqladmin[full]",
     "dishka",
     "uvicorn",
+    "asyncpg",
+    "psycopg",
 ]
 
 [project.scripts]
-cloyt = "cloyt.main:main"
+cloyt-daemon = "cloyt.main.daemon:main"
+cloyt-admin = "cloyt.main.admin:main"

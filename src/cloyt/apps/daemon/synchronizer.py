@@ -4,15 +4,22 @@ from datetime import datetime, timedelta
 from logging import getLogger
 from typing import Iterable
 
-import pytz
 import youtrack_sdk
 from dishka import Container
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from clockify_api_client.client import ClockifyAPIClient
 from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
+from youtrack_sdk.exceptions import YouTrackException
 
-from cloyt.domain.models import ProjectMember
+from cloyt.domain.models import (
+    ProjectMember,
+    Employee,
+    Project,
+    WorkItem,
+    WorkItemType as WorkItemTypeModel,
+)
+from cloyt.infrastructure import DaemonConfig
 
 
 logger = getLogger(__name__)
@@ -22,39 +29,88 @@ class CloytSynchronizer:
     def __init__(
             self,
             container: Container,
-            sync_tolerance_delay_seconds: int,
-            throttling_delay_seconds: int,
-            window_size: int,
-            ignore_entries_before: datetime,
-            youtrack_base_url: str,
-            tz: pytz.BaseTzInfo,
     ):
         self.container = container
-        self.youtrack_base_url = youtrack_base_url
-        self.sync_tolerance_delay_seconds = sync_tolerance_delay_seconds
-        self.throttling_delay_seconds = throttling_delay_seconds
-        self.window_size = window_size
-        self.ignore_entries_before = ignore_entries_before
-        self.tz = tz
+        self.config: DaemonConfig = container.get(DaemonConfig)
 
-    def _sync_project_member(self, project_member: ProjectMember):
+    def _sync_project_member(self, container: Container, employee: Employee):
+        config = self.config
         clockify_client = (
             ClockifyAPIClient()
             .build(
-                api_key=project_member.employee.clockify_token,
+                api_key=employee.clockify_token,
                 api_url="api.clockify.me/v1",
             )
         )
         youtrack_client = youtrack_sdk.client.Client(
-            base_url=self.youtrack_base_url,
-            token=project_member.employee.youtrack_token,
+            base_url=config.youtrack_base_url,
+            token=employee.youtrack_token,
         )
 
+        # sync available youtrack projects and memberships
+
+        projects = youtrack_client.get_projects()
+        with container.get(Session) as session:
+            for i in projects:
+                stmt = (
+                    select(Project)
+                    .where(Project.youtrack_id == i.id)
+                )
+                project: Project | None = session.scalar(stmt)
+                if project is None:
+                    project = Project(
+                        youtrack_id=i.id,
+                        name=i.name,
+                        short_name=i.short_name,
+                    )
+                    session.add(project)
+                else:
+                    project.short_name = i.short_name
+                    project.name = i.name
+                session.flush()
+
+                project_item_types = youtrack_client\
+                    .get_project_work_item_types(
+                        project_id=project.youtrack_id,
+                    )
+                for j in project_item_types:
+                    stmt = (
+                        select(WorkItemTypeModel)
+                        .where(WorkItemTypeModel.youtrack_id == j.id)
+                    )
+                    item_type = session.scalar(stmt)
+                    if item_type is None:
+                        item_type = WorkItemTypeModel(
+                            name=j.name,
+                            youtrack_id=j.id,
+                            project_id=project.id,
+                        )
+                        session.add(item_type)
+                        session.flush()
+                stmt = (
+                    select(ProjectMember)
+                    .where(ProjectMember.employee_id == employee.id)
+                    .where(ProjectMember.project_id == project.id)
+                )
+                project_member = session.scalar(stmt)
+                if project_member is None:
+                    project_member = ProjectMember(
+                        employee_id=employee.id,
+                        project_id=project.id,
+                        sync_enabled=True,
+                        comment="Automatically inserted",
+                    )
+                    session.add(project_member)
+                    session.flush()
+            session.commit()
+
+        # retrieve and process clockify time entries
+
         entries = clockify_client.time_entries.get_time_entries(
-            workspace_id=project_member.employee.clockify_workspace_id,
-            user_id=project_member.employee.clockify_user_id,
+            workspace_id=employee.clockify_workspace_id,
+            user_id=employee.clockify_user_id,
         )
-        for entry in entries[:self.window_size]:
+        for entry in entries[:config.sync_window_size]:
             raw_time_interval = entry["timeInterval"]
 
             if raw_time_interval["end"] is None:
@@ -64,88 +120,119 @@ class CloytSynchronizer:
             end = datetime.fromisoformat(raw_time_interval["end"])
 
             if (end
-                    + timedelta(seconds=self.sync_tolerance_delay_seconds)
-                    >= datetime.now(tz=self.tz)):
-                continue
+                    + timedelta(seconds=config.sync_tolerance_delay_seconds)
+                    >= datetime.now(tz=self.config.tz)):
+                continue  # skip sync tolerant by delay time entries
 
-            if start <= self.ignore_entries_before:
-                continue
+            if start <= config.ignore_entries_before:
+                continue  # skip sync tolerant by threshold time entries
 
             description = entry["description"].strip()
 
-            match = re.match(r"(\S+-\d+)\s*(.*)\s*", description)
+            match = re.match(r"(\S+)-(\d+)\s*(.*)\s*", description)
             if match is None:
                 logger.debug(f"Cannot match issue by text {description}")
                 continue
 
-            issue_id = match.group(1)
-            time_entry_description = match.group(2)
+            youtrack_project_short_name = match.group(1)
+            youtrack_project_issue_number = match.group(2)
+            issue_id = (f"{youtrack_project_short_name}"
+                        f"-{youtrack_project_issue_number}")
+            time_entry_description = match.group(3)
 
-            existing_items = youtrack_client.get_issue_work_items(
-                issue_id=issue_id)
-            all_entry_ids = set()
-            for i in existing_items:
-                match = re.search(r".*Time entry id: `([a-f0-9]+)`.*", i.text)
-                if match is None:
-                    logger.debug(
-                        f"Cannot match time entry of "
-                        f"issue work item's text `{i.text}`"
-                    )
-                    continue
-                entry_id = match.group(1)
-                all_entry_ids.add(entry_id)
+            with container.get(Session) as session:
+                stmt = (
+                    select(WorkItem)
+                    .where(WorkItem.clockify_time_entry_id == entry["id"])
+                )
+                existing_work_item: WorkItem | None = session.scalar(stmt)
+                if existing_work_item is not None:
+                    continue  # work item already created
 
-            if entry["id"] in all_entry_ids:
-                continue
-
-            current_datetime_str = datetime.now(tz=self.tz).strftime(
+            current_datetime_str = datetime.now(tz=config.tz).strftime(
                 "%Y-%m-%d %H:%M:%S (%z)")
-            r = youtrack_client.create_issue_work_item(
-                issue_id=issue_id,
-                issue_work_item=IssueWorkItem(
-                    date=start,
-                    duration=DurationValue(
-                        minutes=round((end - start).total_seconds() / 60),
-                    ),
-                    text=(
-                        f"**{time_entry_description}**\n\n"
-                        f"Inserted from clockify on {current_datetime_str}"
-                        f"\nDO NOT EDIT CONTENT BELOW MANUALLY"
-                        f"\nTime entry id: `{entry["id"]}`"
-                    ),
-                    work_item_type=WorkItemType(
-                        id=project_member,
+            
+            with container.get(Session) as session:
+                stmt = (
+                    select(Project)
+                    .where(Project.short_name == youtrack_project_short_name)
+                )
+                project = session.scalar(stmt)
+
+                stmt = (
+                    select(ProjectMember)
+                    .where(ProjectMember.employee_id == employee.id)
+                    .where(ProjectMember.project_id == project.id)
+                )
+                member: ProjectMember = session.scalar(stmt)
+                work_item_type = member.default_work_item_type
+                work_item_type = (
+                        work_item_type
+                        or project.default_work_item_type
+                )
+
+            try:
+                r = youtrack_client.create_issue_work_item(
+                    issue_id=issue_id,
+                    issue_work_item=IssueWorkItem(
+                        date=start,
+                        duration=DurationValue(
+                            minutes=round((end - start).total_seconds() / 60),
+                        ),
+                        text=(
+                            f"**{time_entry_description}**\n\n"
+                            f"Inserted from clockify on {current_datetime_str}"
+                        ),
+                        work_item_type=work_item_type and WorkItemType(
+                            id=work_item_type.youtrack_id,
+                        ),
                     )
                 )
-            )
+            except YouTrackException as e:
+                logger.warning(
+                    f"Can't insert issue work item to issue `{issue_id}`. Err"
+                    f" args: {e.args}"
+                )
+                continue
             logger.info(
                 f"Time entry with id `{entry["id"]}` upserted to "
                 f"issue `{issue_id}` as work item with id `{r.id}`"
             )
+            with container.get(Session) as session:
+                entity = WorkItem(
+                    youtrack_id=r.id,
+                    clockify_time_entry_id=entry["id"],
+                    project_member_id=member.id,
+                    duration=end-start,
+                    text=r.text,
+                    work_item_type=work_item_type,
+                )
+                session.add(entity)
+                session.flush()
+                session.commit()
 
     def _iteration(self, container: Container):
         with container.get(Session) as session:
-            project_members: Iterable[ProjectMember] = session.scalars(
-                select(ProjectMember),
-                execution_options=(joinedload(
-                    ProjectMember.project,
-                    ProjectMember.employee,
-                )),
+            employees: Iterable[Employee] = session.scalars(
+                select(Employee),
             )
-            for i in project_members:
-                self._sync_project_member(i)
+            for i in employees:
+                self._sync_project_member(container, i)
 
     def run(self):
+        config = self.config
+
         while True:
+            logger.debug("Start next sync iteration")
             starts_at = datetime.now()
             with self.container() as request_container:
                 self._iteration(request_container)
             ends_at = datetime.now()
 
             total_seconds = (ends_at-starts_at).total_seconds()
-            delay = self.throttling_delay_seconds - total_seconds
+            delay = config.sync_throttling_delay_seconds - total_seconds
 
             if delay <= 1:
-                logger.warning(f"To small delay ({delay:.4f}s)")
+                logger.warning(f"To small delay ({delay:.2f}s)")
 
             time.sleep(delay)

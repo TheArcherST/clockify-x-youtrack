@@ -8,7 +8,8 @@ from cloyt.domain.models import (
     Employee,
     Project,
     ProjectMember,
-    TimeRecord,
+    WorkItem,
+    WorkItemType,
 )
 
 
@@ -20,37 +21,70 @@ class EmployeeAdmin(ModelView, model=Employee):
         Employee.created_at,
         Employee.projects,
     ]
+    form_edit_rules = [
+        "full_name",
+        "clockify_token",
+        "youtrack_token",
+        "sync_by_default",
+        "projects",
+    ]
 
 
 class ProjectAdmin(ModelView, model=Project):
     column_list = [
-        Project.title,
-        Project.clockify_id,
+        Project.name,
+        Project.short_name,
         Project.youtrack_id,
+        Project.default_work_item_type,
         Project.created_at,
         Project.employees,
     ]
 
 
-class TimeRecordAdmin(ModelView, model=TimeRecord):
+class ProjectMemberAdmin(ModelView, model=ProjectMember):
     column_list = [
-        TimeRecord.description,
-        TimeRecord.clockify_id,
-        TimeRecord.youtrack_id,
-        TimeRecord.job_type,
+        ProjectMember.employee,
+        ProjectMember.project,
+        ProjectMember.sync_enabled,
+        ProjectMember.default_work_item_type,
+    ]
+    form_edit_rules = [
+        "sync_enabled",
+        "default_work_item_type",
+    ]
+
+
+class WorkItemAdmin(ModelView, model=WorkItem):
+    column_list = [
+        WorkItem.text,
+        WorkItem.clockify_time_entry_id,
+        WorkItem.youtrack_id,
+        WorkItem.work_item_type,
     ]
     can_edit = False
     can_create = False
-    can_delete = False
 
 
-class ProjectMemberAdmin(ModelView, model=ProjectMember):
+class WorkItemTypeAdmin(ModelView, model=WorkItemType):
     column_list = [
-        ProjectMember.employee_id
+        WorkItemType.name,
+        WorkItemType.youtrack_id,
+        WorkItemType.created_at,
+    ]
+
+    can_edit = [
+        "title",
     ]
 
 
 async def setup_admin(container: AsyncContainer, app: FastAPI) -> Admin:
     engine = await container.get(AsyncEngine)
+
     admin = Admin(app, engine)
+    admin.add_view(EmployeeAdmin)
+    admin.add_view(ProjectAdmin)
+    admin.add_view(WorkItemTypeAdmin)
+    admin.add_view(ProjectMemberAdmin)
+    admin.add_view(WorkItemAdmin)
+
     return admin

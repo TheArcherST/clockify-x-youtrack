@@ -1,10 +1,13 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import create_engine
 from sqlalchemy import pool
+from dishka import make_container
 
 from alembic import context
-from cloyt.domain.models import *  # noqa: F403, F401
+from cloyt.infrastructure import InfrastructureProvider, PostgresConfig
+from cloyt.domain import models  # noqa: F401
+from cloyt.domain.models import Base
 
 
 # this is the Alembic Config object, which provides
@@ -20,7 +23,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -40,7 +43,12 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    container = make_container(InfrastructureProvider())
+    postgres_config: PostgresConfig = container.get(PostgresConfig)
+    url = config.get_main_option(
+        "sqlalchemy.url",
+        postgres_config.get_sqlalchemy_url("psycopg"),
+    )
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -59,9 +67,10 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    container = make_container(InfrastructureProvider())
+    postgres_config: PostgresConfig = container.get(PostgresConfig)
+    connectable = create_engine(
+        url=postgres_config.get_sqlalchemy_url("psycopg"),
         poolclass=pool.NullPool,
     )
 
