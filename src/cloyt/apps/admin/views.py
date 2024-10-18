@@ -1,11 +1,12 @@
 from datetime import timedelta
-from typing import Type
+from typing import Type, Any
 
 import wtforms
 from dishka import AsyncContainer
 from fastapi import FastAPI
 from sqladmin import ModelView, Admin
 from sqlalchemy.ext.asyncio import AsyncEngine
+from starlette.requests import Request
 from wtforms import Form
 
 from cloyt.apps.admin.auth_backend import AdminAuthBackend
@@ -41,6 +42,15 @@ class EmployeeAdmin(ModelView, model=Employee):
             "Clockify token", render_kw={"class": "form-control"}
         )
         return form
+
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        if not is_created:
+            if not data["clockify_token"]:
+                data["clockify_token"] = model.clockify_token
+            if not data["youtrack_token"]:
+                data["youtrack_token"] = model.youtrack_token
 
 
 class ProjectAdmin(ModelView, model=Project):

@@ -46,6 +46,7 @@ class CloytSynchronizer:
             base_url=config.youtrack_base_url,
             token=employee.youtrack_token,
         )
+        print(employee.youtrack_token, employee.clockify_token)
 
         # sync available youtrack projects and memberships
 
