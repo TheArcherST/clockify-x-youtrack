@@ -8,8 +8,11 @@ database = "cloyt"
 sync_tolerance_delay_seconds = 30
 sync_throttling_delay_seconds = 120
 sync_window_size = 5
-ignore_entries_before = "2024-10-17T20:41:55Z"
-youtrack_base_url = ""
+ignore_entries_before = "2024-10-16T20:41:55Z"
+youtrack_base_url = "..."
 tz = "Europe/Moscow"
+default_work_item_type_id = "148-0"
+logs_path = "./logs"
 
 [admin]
+logs_path = "./logs"
