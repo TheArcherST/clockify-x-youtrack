@@ -22,10 +22,11 @@ from cloyt.infrastructure import AdminConfig
 class EmployeeAdmin(ModelView, model=Employee):
     column_list = [
         Employee.full_name,
-        Employee.created_at,
         Employee.projects,
-        Employee.clockify_token,
-        Employee.youtrack_token,
+        Employee.created_at,
+    ]
+    form_create_rules = [
+        "full_name",
     ]
     form_edit_rules = [
         "full_name",
