@@ -42,8 +42,9 @@ class PostgresConfig(BaseModel):
 
 
 class AdminConfig(BaseModel):
-    default_user: str
-    default_password: str
+    secret_key: str
+    username: str
+    password: str
     logging_level: str = "DEBUG"
     logs_path: str
 

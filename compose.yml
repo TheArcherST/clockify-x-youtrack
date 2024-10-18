@@ -34,6 +34,18 @@ services:
         condition: service_healthy
       run-migrations:
         condition: service_completed_successfully
+    healthcheck:
+      test: "curl --fail http://127.0.0.1:80 || exit 1"
+      retries: 3
+      timeout: 2s
+      start_period: 10s
+  nginx:
+    build: ./nginx
+    ports:
+      - ${COMPOSE__NGINX__HOST}:${COMPOSE__NGINX__PORT}:8443
+    depends_on:
+      admin:
+        condition: service_started
   run-migrations:
     build: .
     restart: no

@@ -1,9 +1,11 @@
+from datetime import timedelta
+
 from dishka import AsyncContainer
 from fastapi import FastAPI
 from sqladmin import ModelView, Admin
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-
+from cloyt.apps.admin.auth_backend import AdminAuthBackend
 from cloyt.domain.models import (
     Employee,
     Project,
@@ -11,6 +13,7 @@ from cloyt.domain.models import (
     WorkItem,
     WorkItemType,
 )
+from cloyt.infrastructure import AdminConfig
 
 
 class EmployeeAdmin(ModelView, model=Employee):
@@ -79,8 +82,14 @@ class WorkItemTypeAdmin(ModelView, model=WorkItemType):
 
 async def setup_admin(container: AsyncContainer, app: FastAPI) -> Admin:
     engine = await container.get(AsyncEngine)
+    config: AdminConfig = await container.get(AdminConfig)
+    admin = Admin(app, engine, authentication_backend=AdminAuthBackend(
+        secret_key=config.secret_key,
+        username=config.username,
+        password=config.password,
+        login_duration=timedelta(days=30),
+    ))
 
-    admin = Admin(app, engine)
     admin.add_view(EmployeeAdmin)
     admin.add_view(ProjectAdmin)
     admin.add_view(WorkItemTypeAdmin)
