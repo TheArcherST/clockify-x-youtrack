@@ -213,7 +213,7 @@ class CloytSynchronizer:
                         ),
                         text=(
                             f"**{time_entry_description}**\n\n"
-                            f"Inserted from clockify on {current_datetime_str}"
+                            f"Inserted from clockify at {current_datetime_str}"
                         ),
                         work_item_type=work_item_type and WorkItemType(
                             id=work_item_type.youtrack_id,
