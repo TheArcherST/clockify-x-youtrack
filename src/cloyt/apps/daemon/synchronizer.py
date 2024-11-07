@@ -209,7 +209,10 @@ class CloytSynchronizer:
                     issue_work_item=IssueWorkItem(
                         date=start,
                         duration=DurationValue(
-                            minutes=round((end - start).total_seconds() / 60),
+                            minutes=max(
+                                round((end - start).total_seconds() / 60),
+                                1,
+                            ),
                         ),
                         text=(
                             f"**{time_entry_description}**\n\n"
