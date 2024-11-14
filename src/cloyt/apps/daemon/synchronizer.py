@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from clockify_api_client.client import ClockifyAPIClient
 from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
-from youtrack_sdk.exceptions import YouTrackException
+from youtrack_sdk.exceptions import YouTrackException, YouTrackUnauthorized
 
 from cloyt.domain.models import (
     ProjectMember,
@@ -33,7 +33,7 @@ class CloytSynchronizer:
         self.container = container
         self.config: DaemonConfig = container.get(DaemonConfig)
 
-    def _sync_project_member(self, container: Container, employee: Employee):
+    def _sync_employee(self, container: Container, employee: Employee):
         config = self.config
         clockify_client = (
             ClockifyAPIClient()
@@ -150,8 +150,6 @@ class CloytSynchronizer:
                 if existing_work_item is not None:
                     continue  # work item already created
 
-
-
             current_datetime_str = datetime.now(tz=config.tz).strftime(
                 "%Y-%m-%d %H:%M:%S (%z)")
 
@@ -173,36 +171,6 @@ class CloytSynchronizer:
                         work_item_type
                         or project.default_work_item_type
                 )
-
-                # backward compatibility.  check and upsert last version
-                #  record if exists.
-
-                existing_items = youtrack_client.get_issue_work_items(
-                    issue_id=issue_id)
-                for i in existing_items:
-                    match = re.search(r".*Time entry id: `([a-f0-9]+)`.*",
-                                      i.text)
-                    if match is None:
-                        logger.debug(
-                            f"Cannot match time entry of "
-                            f"issue work item's text `{i.text}`"
-                        )
-                        continue
-                    entry_id = match.group(1)
-                    if entry["id"] == entry_id:
-                        with container.get(Session) as session:
-                            entity = WorkItem(
-                                youtrack_id=i.id,
-                                clockify_time_entry_id=entry["id"],
-                                project_member_id=member.id,
-                                duration=end - start,
-                                text=i.text,
-                                work_item_type=work_item_type,
-                            )
-                            session.add(entity)
-                            session.flush()
-                            session.commit()
-                            return
 
             work_item = IssueWorkItem(
                 date=start,
@@ -250,7 +218,12 @@ class CloytSynchronizer:
                 select(Employee),
             )
             for i in employees:
-                self._sync_project_member(container, i)
+                try:
+                    self._sync_employee(container, i)
+                except YouTrackUnauthorized:
+                    logger.error(f"Youtrack client unauthorized for"
+                                 f" employee id={i.id}"
+                                 f" full_name={i.full_name}")
 
     def run(self):
         config = self.config
