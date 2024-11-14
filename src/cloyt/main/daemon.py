@@ -20,6 +20,7 @@ def main():
                 when="midnight",
             ),
         ],
+        format="[%(asctime)s] [%(levelname)s] - %(name)s - %(message)s",
     )
     app = CloytSynchronizer(container)
     app.run()
