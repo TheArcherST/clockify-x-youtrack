@@ -28,6 +28,7 @@ def main():
                     when="midnight",
                 ),
             ],
+            format="[%(asctime)s] [%(levelname)s] - %(name)s - %(message)s",
         )
         await setup_admin(container, app_)
         yield
