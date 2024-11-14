@@ -1,7 +1,7 @@
 import re
 import time
 from datetime import datetime, timedelta
-from logging import getLogger
+from logging import getLogger, warning
 from typing import Iterable
 
 import youtrack_sdk
@@ -172,17 +172,22 @@ class CloytSynchronizer:
                         or project.default_work_item_type
                 )
 
+            # note: you cannot create zero minute work item in youtrack.
+            normalized_minutes = max(
+                round((end - start).total_seconds() / 60),
+                1,
+            )
             work_item = IssueWorkItem(
                 date=start,
                 duration=DurationValue(
-                    minutes=
-                    max(round((end - start).total_seconds() / 60), 1, ), ),
-                    text=(f"**{time_entry_description}**\n\n"
-                          f"Inserted from clockify at {current_datetime_str}"),
-                    work_item_type=
-                    work_item_type and WorkItemType(
-                        id=work_item_type.youtrack_id,
-                    ),
+                    minutes=normalized_minutes
+                ),
+                text=(f"**{time_entry_description}**\n\n"
+                      f"Inserted from clockify at {current_datetime_str}"),
+                work_item_type=
+                work_item_type and WorkItemType(
+                    id=work_item_type.youtrack_id,
+                ),
             )
             try:
                 r = youtrack_client.create_issue_work_item(
@@ -221,9 +226,18 @@ class CloytSynchronizer:
                 try:
                     self._sync_employee(container, i)
                 except YouTrackUnauthorized:
-                    logger.error(f"Youtrack client unauthorized for"
-                                 f" employee id={i.id}"
-                                 f" full_name={i.full_name}")
+                    logger.error(
+                        f"Youtrack client unauthorized for"
+                        f" employee id={i.id}"
+                        f" full_name={i.full_name}"
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "Unexpected error when syncing"
+                         f" employee id={i.id}"
+                         f" full_name={i.full_name}",
+                         exc_info=e,
+                    )
 
     def run(self):
         config = self.config
@@ -238,7 +252,7 @@ class CloytSynchronizer:
             total_seconds = (ends_at-starts_at).total_seconds()
             delay = config.sync_throttling_delay_seconds - total_seconds
 
-            if delay <= 1:
-                logger.warning(f"To small delay ({delay:.2f}s)")
-
-            time.sleep(delay)
+            if delay > 0:
+                time.sleep(delay)
+            else:
+                logger.warning(f"Continue without delay (delay={delay}")
