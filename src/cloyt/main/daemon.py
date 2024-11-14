@@ -1,5 +1,5 @@
 from logging import basicConfig
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from os import path
 
 from dishka import make_container
@@ -14,10 +14,10 @@ def main():
     basicConfig(
         level=config.logging_level,
         handlers=[
-            RotatingFileHandler(
+            TimedRotatingFileHandler(
                 filename=path.join(config.logs_path, "daemon.log"),
-                maxBytes=1000 * 1000,
                 backupCount=10,
+                when="midnight",
             ),
         ],
     )

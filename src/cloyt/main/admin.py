@@ -1,6 +1,6 @@
 from os import path
 from logging import basicConfig
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -22,10 +22,10 @@ def main():
         basicConfig(
             level=config.logging_level,
             handlers=[
-                RotatingFileHandler(
+                TimedRotatingFileHandler(
                     filename=path.join(config.logs_path, "admin.log"),
-                    maxBytes=1000 * 1000,
                     backupCount=10,
+                    when="midnight",
                 ),
             ],
         )

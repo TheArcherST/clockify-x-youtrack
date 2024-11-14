@@ -131,7 +131,8 @@ class CloytSynchronizer:
 
             match = re.match(r"(\S+)-(\d+)\s*(.*)\s*", description)
             if match is None:
-                logger.debug(f"Cannot match issue by text {description}")
+                logger.debug(f"Cannot match issue of entry {entry['id']} "
+                             f"by description")
                 continue
 
             youtrack_project_short_name = match.group(1)
@@ -153,7 +154,7 @@ class CloytSynchronizer:
 
             current_datetime_str = datetime.now(tz=config.tz).strftime(
                 "%Y-%m-%d %H:%M:%S (%z)")
-            
+
             with container.get(Session) as session:
                 stmt = (
                     select(Project)
@@ -203,30 +204,27 @@ class CloytSynchronizer:
                             session.commit()
                             return
 
+            work_item = IssueWorkItem(
+                date=start,
+                duration=DurationValue(
+                    minutes=
+                    max(round((end - start).total_seconds() / 60), 1, ), ),
+                    text=(f"**{time_entry_description}**\n\n"
+                          f"Inserted from clockify at {current_datetime_str}"),
+                    work_item_type=
+                    work_item_type and WorkItemType(
+                        id=work_item_type.youtrack_id,
+                    ),
+            )
             try:
                 r = youtrack_client.create_issue_work_item(
                     issue_id=issue_id,
-                    issue_work_item=IssueWorkItem(
-                        date=start,
-                        duration=DurationValue(
-                            minutes=max(
-                                round((end - start).total_seconds() / 60),
-                                1,
-                            ),
-                        ),
-                        text=(
-                            f"**{time_entry_description}**\n\n"
-                            f"Inserted from clockify at {current_datetime_str}"
-                        ),
-                        work_item_type=work_item_type and WorkItemType(
-                            id=work_item_type.youtrack_id,
-                        ),
-                    )
+                    issue_work_item=work_item,
                 )
             except YouTrackException as e:
                 logger.warning(
-                    f"Can't insert issue work item to issue `{issue_id}`. Err"
-                    f" args: {e.args}"
+                    f"Can't insert issue work item {work_item} to issue "
+                    f"`{issue_id}`. Err args: {e.args}"
                 )
                 continue
             logger.info(
