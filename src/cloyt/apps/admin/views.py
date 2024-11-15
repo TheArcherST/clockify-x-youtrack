@@ -65,9 +65,9 @@ class EmployeeAdmin(ModelView, model=Employee):
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
         if not is_created:
-            if not data["clockify_token"]:
+            if "clockify_token" in data and not data["clockify_token"]:
                 data["clockify_token"] = model.clockify_token
-            if not data["youtrack_token"]:
+            if "youtrack_token" in data and not data["youtrack_token"]:
                 data["youtrack_token"] = model.youtrack_token
 
 
