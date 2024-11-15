@@ -1,10 +1,12 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Type, Any
 
 import wtforms
 from dishka import AsyncContainer
 from fastapi import FastAPI
 from sqladmin import ModelView, Admin
+from sqladmin._queries import Query
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.requests import Request
 from wtforms import Form
@@ -21,6 +23,8 @@ from cloyt.infrastructure import AdminConfig
 
 
 class EmployeeAdmin(ModelView, model=Employee):
+    model: Type[Employee]
+
     column_list = [
         Employee.full_name,
         Employee.projects,
@@ -32,6 +36,20 @@ class EmployeeAdmin(ModelView, model=Employee):
     form_edit_rules = [
         "full_name",
     ]
+
+    def list_query(self, request: Request) -> Select:
+        stmt = (select(self.model)
+                .where(self.model.deleted_at.is_(None)))
+        return stmt
+
+    async def delete_model(self, request: Request, pk: Any) -> None:
+        await Query(self).update(
+            pk=pk,
+            data={
+                "deleted_at": datetime.now(),
+            },
+            request=request,
+        )
 
     async def scaffold_form(self, *args) -> Type[Form]:
         form = await super().scaffold_form()

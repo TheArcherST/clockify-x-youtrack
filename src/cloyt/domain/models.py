@@ -19,6 +19,7 @@ class Employee(Base):
     clockify_user_id: Mapped[str] = mapped_column(unique=True)
     clockify_workspace_id: Mapped[str]
     youtrack_token: Mapped[str] = mapped_column(unique=True)
+    deleted_at: Mapped[datetime | None]
     comment: Mapped[str | None]
 
     projects: Mapped[list[Project]] = relationship(
