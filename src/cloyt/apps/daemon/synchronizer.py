@@ -116,6 +116,14 @@ class CloytSynchronizer:
                 "in-progress": False,
             },
         )
+        sorted_entries = sorted(
+            entries,
+            key=lambda x: datetime.fromisoformat(
+                x["timeInterval"]["start"],
+            ),
+            reverse=True,
+        )
+        assert sorted_entries == entries
         for entry in entries:
             raw_time_interval = entry["timeInterval"]
             start = datetime.fromisoformat(raw_time_interval["start"])
