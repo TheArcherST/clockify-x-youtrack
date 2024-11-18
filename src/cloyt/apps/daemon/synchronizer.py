@@ -1,6 +1,7 @@
 import re
 import time
 from datetime import datetime, timedelta
+from functools import partial
 from logging import getLogger, warning
 from typing import Iterable
 
@@ -109,13 +110,14 @@ class CloytSynchronizer:
         entries = clockify_client.time_entries.get_time_entries(
             workspace_id=employee.clockify_workspace_id,
             user_id=employee.clockify_user_id,
+            params={
+                "page_size": config.sync_window_size,
+                "start": config.ignore_entries_before.isoformat(),
+                "in-progress": False,
+            },
         )
-        for entry in entries[:config.sync_window_size]:
+        for entry in entries:
             raw_time_interval = entry["timeInterval"]
-
-            if raw_time_interval["end"] is None:
-                continue  # skip active time entries
-
             start = datetime.fromisoformat(raw_time_interval["start"])
             end = datetime.fromisoformat(raw_time_interval["end"])
 
