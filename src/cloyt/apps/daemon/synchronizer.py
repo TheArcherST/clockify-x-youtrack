@@ -28,13 +28,15 @@ logger = getLogger(__name__)
 
 
 
+CLOCKIFY_TIMEOUT = 10
+
+
 class PatchedAbstractClockify(abstract_clockify.AbstractClockify):
-    TIMEOUT = 10
 
     def get(self, url):
         logger.debug("Process clockify patched GET request")
         response = requests.get(
-            url, headers=self.header, timeout=self.TIMEOUT)
+            url, headers=self.header, timeout=CLOCKIFY_TIMEOUT)
         if response.status_code in [200, 201, 202]:
             return response.json()
         raise Exception(response.json())
@@ -42,7 +44,7 @@ class PatchedAbstractClockify(abstract_clockify.AbstractClockify):
     def post(self, url, payload):
         logger.debug("Process clockify patched POST request")
         response = requests.post(
-            url, headers=self.header, json=payload, timeout=self.TIMEOUT)
+            url, headers=self.header, json=payload, timeout=CLOCKIFY_TIMEOUT)
         if response.status_code in [200, 201, 202]:
             return response.json()
         raise Exception(response.json())
@@ -50,7 +52,7 @@ class PatchedAbstractClockify(abstract_clockify.AbstractClockify):
     def put(self, url, payload):
         logger.debug("Process clockify patched PUT request")
         response = requests.put(
-            url, headers=self.header, json=payload, timeout=self.TIMEOUT)
+            url, headers=self.header, json=payload, timeout=CLOCKIFY_TIMEOUT)
         if response.status_code in [200, 201, 202]:
             return response.json()
         raise Exception(response.json())
@@ -58,7 +60,7 @@ class PatchedAbstractClockify(abstract_clockify.AbstractClockify):
     def delete(self, url):
         logger.debug("Process clockify patched DELETE request")
         response = requests.delete(
-            url, headers=self.header, timeout=self.TIMEOUT)
+            url, headers=self.header, timeout=CLOCKIFY_TIMEOUT)
         if response.status_code in [200, 201, 202, 204]:
             return response.json()
         raise Exception(response.json())
