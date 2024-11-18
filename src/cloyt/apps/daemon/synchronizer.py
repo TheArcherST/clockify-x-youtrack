@@ -220,7 +220,8 @@ class CloytSynchronizer:
     def _iteration(self, container: Container):
         with container.get(Session) as session:
             employees: Iterable[Employee] = session.scalars(
-                select(Employee),
+                select(Employee)
+                .where(Employee.deleted_at.is_not(None)),
             )
             for i in employees:
                 try:
