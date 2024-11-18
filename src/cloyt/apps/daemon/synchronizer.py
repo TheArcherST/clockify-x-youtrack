@@ -1,15 +1,16 @@
 import re
 import time
 from datetime import datetime, timedelta
-from functools import partial
-from logging import getLogger, warning
+from logging import getLogger
 from typing import Iterable
 
+import requests
 import youtrack_sdk
 from dishka import Container
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from clockify_api_client.client import ClockifyAPIClient
+from clockify_api_client import abstract_clockify
 from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
 from youtrack_sdk.exceptions import YouTrackException, YouTrackUnauthorized
 
@@ -24,6 +25,40 @@ from cloyt.infrastructure import DaemonConfig
 
 
 logger = getLogger(__name__)
+
+
+
+class PatchedAbstractClockify(abstract_clockify.AbstractClockify):
+    def get(self, url):
+        response = requests.get(url, headers=self.header, timeout=5)
+        logger.debug("The GET is really patched")
+        if response.status_code in [200, 201, 202]:
+            return response.json()
+        raise Exception(response.json())
+
+    def post(self, url, payload):
+        response = requests.post(url, headers=self.header, json=payload, timeout=5)
+        if response.status_code in [200, 201, 202]:
+            return response.json()
+        raise Exception(response.json())
+
+    def put(self, url, payload):
+        response = requests.put(url, headers=self.header, json=payload, timeout=5)
+        if response.status_code in [200, 201, 202]:
+            return response.json()
+        raise Exception(response.json())
+
+    def delete(self, url):
+        response = requests.delete(url, headers=self.header, timeout=5)
+        if response.status_code in [200, 201, 202, 204]:
+            return response.json()
+        raise Exception(response.json())
+
+
+abstract_clockify.AbstractClockify.get = PatchedAbstractClockify.get
+abstract_clockify.AbstractClockify.post = PatchedAbstractClockify.post
+abstract_clockify.AbstractClockify.put = PatchedAbstractClockify.put
+abstract_clockify.AbstractClockify.delete = PatchedAbstractClockify.delete
 
 
 class CloytSynchronizer:
@@ -46,6 +81,7 @@ class CloytSynchronizer:
         youtrack_client = youtrack_sdk.client.Client(
             base_url=config.youtrack_base_url,
             token=employee.youtrack_token,
+            timeout=5,
         )
 
         # sync available youtrack projects and memberships
@@ -264,6 +300,8 @@ class CloytSynchronizer:
             delay = config.sync_throttling_delay_seconds - total_seconds
 
             if delay > 0:
+                logger.debug(f"Enter {delay}s delay")
                 time.sleep(delay)
+                logger.debug(f"Exit delay")
             else:
                 logger.warning(f"Continue without delay (delay={delay}")
