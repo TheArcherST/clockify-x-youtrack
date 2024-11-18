@@ -3,7 +3,7 @@ name = "cloyt"
 version = "0.0.1"
 dependencies = [
     "sqlalchemy>=2",
-    "clockify-api-client~=0.1.0",
+    "clockify-api-client==0.1.0",
     "youtrack-sdk~=1.0.202409111140",
     "sqlalchemy>=2",
     "alembic",
