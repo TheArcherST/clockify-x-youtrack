@@ -228,9 +228,9 @@ class CloytSynchronizer:
                     logger.warning(
                         f"Time entry id={entry['id']} is matched"
                         f" to project id={project.id} name={project.name}"
-                        f" short_name={project.short_name}, but employee "
-                        f"id={employee.id} full_name={employee.full_name}"
-                        f"does memberships in the project, so just skip entry"
+                        f" short_name={project.short_name}, but employee"
+                        f" id={employee.id} full_name={employee.full_name}"
+                        f" does memberships in the project, so just skip entry"
                     )
                     continue
                 work_item_type = member.default_work_item_type
@@ -263,13 +263,13 @@ class CloytSynchronizer:
                 )
             except YouTrackException as e:
                 logger.warning(
-                    f"Can't insert issue work item {work_item} to issue "
-                    f"`{issue_id}`. Err args: {e.args}"
+                    f"Can't insert issue work item {work_item} to issue"
+                    f"` {issue_id}`. Err args: {e.args}"
                 )
                 continue
             logger.info(
-                f"Time entry with id `{entry["id"]}` upserted to "
-                f"issue `{issue_id}` as work item with id `{r.id}`"
+                f"Time entry with id `{entry["id"]}` upserted to"
+                f" issue `{issue_id}` as work item with id `{r.id}`"
             )
             with container.get(Session) as session:
                 entity = WorkItem(
@@ -342,4 +342,4 @@ class CloytSynchronizer:
                 time.sleep(delay)
                 logger.debug(f"Exit delay")
             else:
-                logger.warning(f"Continue without delay (delay={delay}")
+                logger.warning(f"Continue without delay (delay={delay})")
