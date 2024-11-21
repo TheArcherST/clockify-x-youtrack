@@ -281,6 +281,11 @@ class CloytSynchronizer:
                 .where(Employee.deleted_at.is_(None)),
             )
             for i in employees:
+                logger.debug(
+                    f"Start syncing employee"
+                    f" id={i.id}"
+                    f" full_name={i.full_name}"
+                )
                 while True:
                     try:
                         self._sync_employee(container, i)
@@ -306,6 +311,7 @@ class CloytSynchronizer:
                             f" full_name={i.full_name}"
                             f" due timeout error: `{e}`."
                         )
+                    else:
                         break
 
     def run(self):
