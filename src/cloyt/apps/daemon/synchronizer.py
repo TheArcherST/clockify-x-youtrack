@@ -223,6 +223,15 @@ class CloytSynchronizer:
                     .where(ProjectMember.project_id == project.id)
                 )
                 member: ProjectMember = session.scalar(stmt)
+                if member is None:
+                    logger.warning(
+                        f"Time entry id={entry['id']} is matched"
+                        f" to project id={project.id} name={project.name}"
+                        f" short_name={project.short_name}, but employee "
+                        f"id={employee.id} full_name={employee.full_name}"
+                        f"does memberships in the project, so just skip entry"
+                    )
+                    continue
                 work_item_type = member.default_work_item_type
                 work_item_type = (
                         work_item_type
