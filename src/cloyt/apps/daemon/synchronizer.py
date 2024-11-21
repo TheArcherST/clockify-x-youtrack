@@ -214,6 +214,7 @@ class CloytSynchronizer:
                 stmt = (
                     select(Project)
                     .where(Project.short_name == youtrack_project_short_name)
+                    .order_by(Project.created_at.desc())
                 )
                 project = session.scalar(stmt)
 
