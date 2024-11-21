@@ -13,7 +13,7 @@ from clockify_api_client.client import ClockifyAPIClient
 from clockify_api_client import abstract_clockify
 from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
 from youtrack_sdk.exceptions import YouTrackException, YouTrackUnauthorized
-from urllib3.exceptions import TimeoutError as URLLib3TimeoutError
+from requests.exceptions import Timeout
 
 from cloyt.domain.models import (
     ProjectMember,
@@ -315,7 +315,7 @@ class CloytSynchronizer:
                              exc_info=e,
                         )
                         break
-                    except URLLib3TimeoutError as e:
+                    except Timeout as e:
                         logger.warning(
                             f"Retry syncing"
                             f" employee id={i.id}"
