@@ -41,6 +41,7 @@ services:
       start_period: 10s
   nginx:
     build: ./nginx
+    restart: unless-stopped
     ports:
       - ${COMPOSE__NGINX__HOST}:${COMPOSE__NGINX__PORT}:8443
     depends_on:
@@ -60,6 +61,7 @@ services:
         condition: service_healthy
   postgres:
     image: postgres:17
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
