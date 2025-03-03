@@ -13,6 +13,7 @@ from clockify_api_client.client import ClockifyAPIClient
 from clockify_api_client import abstract_clockify
 from youtrack_sdk.entities import IssueWorkItem, DurationValue, WorkItemType
 from youtrack_sdk.exceptions import YouTrackException, YouTrackUnauthorized
+from requests.exceptions import Timeout
 
 from cloyt.domain.models import (
     ProjectMember,
@@ -214,6 +215,7 @@ class CloytSynchronizer:
                 stmt = (
                     select(Project)
                     .where(Project.short_name == youtrack_project_short_name)
+                    .order_by(Project.created_at.desc())
                 )
                 project = session.scalar(stmt)
 
@@ -223,6 +225,15 @@ class CloytSynchronizer:
                     .where(ProjectMember.project_id == project.id)
                 )
                 member: ProjectMember = session.scalar(stmt)
+                if member is None:
+                    logger.warning(
+                        f"Time entry id={entry['id']} is matched"
+                        f" to project id={project.id} name={project.name}"
+                        f" short_name={project.short_name}, but employee"
+                        f" id={employee.id} full_name={employee.full_name}"
+                        f" does memberships in the project, so just skip entry"
+                    )
+                    continue
                 work_item_type = member.default_work_item_type
                 work_item_type = (
                         work_item_type
@@ -253,13 +264,13 @@ class CloytSynchronizer:
                 )
             except YouTrackException as e:
                 logger.warning(
-                    f"Can't insert issue work item {work_item} to issue "
-                    f"`{issue_id}`. Err args: {e.args}"
+                    f"Can't insert issue work item {work_item} to issue"
+                    f"` {issue_id}`. Err args: {e.args}"
                 )
                 continue
             logger.info(
-                f"Time entry with id `{entry["id"]}` upserted to "
-                f"issue `{issue_id}` as work item with id `{r.id}`"
+                f"Time entry with id `{entry["id"]}` upserted to"
+                f" issue `{issue_id}` as work item with id `{r.id}`"
             )
             with container.get(Session) as session:
                 entity = WorkItem(
@@ -281,6 +292,11 @@ class CloytSynchronizer:
                 .where(Employee.deleted_at.is_(None)),
             )
             for i in employees:
+                logger.debug(
+                    f"Start syncing employee"
+                    f" id={i.id}"
+                    f" full_name={i.full_name}"
+                )
                 while True:
                     try:
                         self._sync_employee(container, i)
@@ -299,13 +315,14 @@ class CloytSynchronizer:
                              exc_info=e,
                         )
                         break
-                    except TimeoutError as e:
+                    except Timeout as e:
                         logger.warning(
                             f"Retry syncing"
                             f" employee id={i.id}"
                             f" full_name={i.full_name}"
                             f" due timeout error: `{e}`."
                         )
+                    else:
                         break
 
     def run(self):
@@ -326,4 +343,4 @@ class CloytSynchronizer:
                 time.sleep(delay)
                 logger.debug(f"Exit delay")
             else:
-                logger.warning(f"Continue without delay (delay={delay}")
+                logger.warning(f"Continue without delay (delay={delay})")
