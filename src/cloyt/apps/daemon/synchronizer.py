@@ -218,6 +218,11 @@ class CloytSynchronizer:
                     .order_by(Project.created_at.desc())
                 )
                 project = session.scalar(stmt)
+                if project is None:
+                    logger.debug(f"Cannot match issue of entry {entry['id']} "
+                                 f"by description: project with short name "
+                                 f"{youtrack_project_short_name} does not exists")
+                    continue
 
                 stmt = (
                     select(ProjectMember)
